@@ -10,6 +10,7 @@
 - python3.5
 
 # 安装教程
+- 安装C++运行环境[需要C++的运行环境，The DLLs require that you have the latest Visual C++ runtime (2015)]：https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads
 - 克隆代码下来
 - 关闭杀毒软件！！！
 - 解压MT4配置文件.rar
