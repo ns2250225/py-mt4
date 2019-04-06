@@ -14,8 +14,8 @@
 extern string PROJECT_NAME = "DWX_ZeroMQ_Example";
 extern string ZEROMQ_PROTOCOL = "tcp";
 extern string HOSTNAME = "*";
-extern int REP_PORT = 5555;
-extern int PUSH_PORT = 5556;
+extern int REP_PORT = 5551;
+extern int PUSH_PORT = 5552;
 extern int MILLISECOND_TIMER = 100;  // 1 millisecond
 
 extern string t0 = "--- Trading Parameters ---";
@@ -47,29 +47,29 @@ int OnInit()
 //---
 
    EventSetMillisecondTimer(MILLISECOND_TIMER);     // Set Millisecond Timer to get client socket input
-   
+
    Print("[REP] Binding MT4 Server to Socket on Port " + REP_PORT + "..");   
    Print("[PUSH] Binding MT4 Server to Socket on Port " + PUSH_PORT + "..");
-   
+
    repSocket.bind(StringFormat("%s://%s:%d", ZEROMQ_PROTOCOL, HOSTNAME, REP_PORT));
    pushSocket.bind(StringFormat("%s://%s:%d", ZEROMQ_PROTOCOL, HOSTNAME, PUSH_PORT));
-   
+
    /*
        Maximum amount of time in milliseconds that the thread will try to send messages 
        after its socket has been closed (the default value of -1 means to linger forever):
    */
-   
+
    repSocket.setLinger(5000);  // 1000 milliseconds
-   
+
    /* 
       If we initiate socket.send() without having a corresponding socket draining the queue, 
       we'll eat up memory as the socket just keeps enqueueing messages.
       
       So how many messages do we want ZeroMQ to buffer in RAM before blocking the socket?
    */
-   
+
    repSocket.setSendHighWaterMark(20);     // 5 messages only.
-   
+
 //---
    return(INIT_SUCCEEDED);
   }
@@ -81,10 +81,10 @@ void OnDeinit(const int reason)
 //---
    Print("[REP] Unbinding MT4 Server from Socket on Port " + REP_PORT + "..");
    repSocket.unbind(StringFormat("%s://%s:%d", ZEROMQ_PROTOCOL, HOSTNAME, REP_PORT));
-   
+
    Print("[PUSH] Unbinding MT4 Server from Socket on Port " + PUSH_PORT + "..");
    pushSocket.unbind(StringFormat("%s://%s:%d", ZEROMQ_PROTOCOL, HOSTNAME, PUSH_PORT));
-   
+
 }
 //+------------------------------------------------------------------+
 //| Expert timer function                                            |
@@ -99,50 +99,52 @@ void OnTimer()
       2) MessageHandler() to process the request
       3) socket.send(reply)
    */
-   
+
    // Get client's response, but don't wait.
    repSocket.recv(request,true);
-   
+
    // MessageHandler() should go here.   
-   ZmqMsg reply = MessageHandler(request);
-   
+   string ret = MessageHandler(request);
+   ZmqMsg reply(ret);
    // socket.send(reply) should go here.
    repSocket.send(reply);
 }
 //+------------------------------------------------------------------+
 
-ZmqMsg MessageHandler(ZmqMsg &request) {
-   
+string MessageHandler(ZmqMsg &request) {
+
    // Output object
-   ZmqMsg reply;
-   
+   string reply;
+
    // Message components for later.
    string components[];
-   
+
    if(request.size() > 0) {
-   
+
       // Get data from request   
       ArrayResize(data, request.size());
       request.getData(data);
       string dataStr = CharArrayToString(data);
-      
+
       // Process data
       ParseZmqMessage(dataStr, components);
-      
+
       // Interpret data
       InterpretZmqMessage(&pushSocket, components);
-      
+
       // Construct response
-      ZmqMsg ret(StringFormat("[SERVER] Processing: %s", dataStr));
-      //ZmqMsg不允许直接访问，所以要把reply=ret改成下面的代码
-      reply.copy(ret);
-      
-      
+      //ZmqMsg ret(StringFormat("[SERVER] Processing: %s", dataStr));
+      //String
+      //ZmqMsg不允许直接访问，不能用reply=ret，也不能用于返回
+      //reply=ret
+      reply=StringFormat("[SERVER] Processing: %s", dataStr);
+
+
    }
    else {
       // NO DATA RECEIVED
    }
-   
+
    return(reply);
 }
 
@@ -150,23 +152,23 @@ ZmqMsg MessageHandler(ZmqMsg &request) {
 void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
 
    Print("ZMQ: Interpreting Message..");
-   
+
    // Message Structures:
-   
+
    // 1) Trading
    // TRADE|ACTION|TYPE|SYMBOL|PRICE|SL|TP|COMMENT|TICKET
    // e.g. TRADE|OPEN|1|EURUSD|0|50|50|R-to-MetaTrader4|12345678
-   
+
    // The 12345678 at the end is the ticket ID, for MODIFY and CLOSE.
-   
+
    // 2) Data Requests
-   
+
    // 2.1) RATES|SYMBOL   -> Returns Current Bid/Ask
-   
+
    // 2.2) DATA|SYMBOL|TIMEFRAME|START_DATETIME|END_DATETIME
-   
+
    // NOTE: datetime has format: D'2015.01.01 00:00'
-   
+
    /*
       compArray[0] = TRADE or RATES
       If RATES -> compArray[1] = Symbol
@@ -192,9 +194,9 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
          compArray[6] = TP
          compArray[7] = Trade Comment
    */
- 
+
    int switch_action = 0;
-   
+
    if(compArray[0] == "TRADE" && compArray[1] == "OPEN")
       switch_action = 1;
    if(compArray[0] == "RATES")
@@ -203,15 +205,15 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
       switch_action = 3;
    if(compArray[0] == "DATA")
       switch_action = 4;
-   
+
    string ret = "";
    int ticket = -1;
    bool ans = FALSE;
    double price_array[];
    ArraySetAsSeries(price_array, true);
-   
+
    int price_count = 0;
-   
+
    switch(switch_action) 
    {
       case 1: 
@@ -229,7 +231,7 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
                else {
                   InformPullClient(pSocket, "OrderSend failed");
                   Print("Error opening BUY order : ", GetLastError());
-               
+
               }
    			}
    		if (compArray[2] == "1") {
@@ -245,7 +247,7 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
                else {
                   InformPullClient(pSocket, "OrderSend failed");
                   Print("Error opening SELL order : ", GetLastError());
-               
+
               }
    			}
          break;
@@ -253,14 +255,14 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
          ret = "N/A"; 
          if(ArraySize(compArray) > 1) 
             ret = GetBidAsk(compArray[1]); 
-            
+
          InformPullClient(pSocket, ret); 
          break;
       case 3:
          if (compArray[2] == "0") {
             OrderSelect(Ticket, SELECT_BY_TICKET, MODE_TRADES);
             Ticket2=OrderClose(OrderTicket(), OrderLots(), Bid, Slippage, MediumSeaGreen);
-            
+
             ret = StringFormat("Trade Closed (Ticket: %d)", ticket);
             InformPullClient(pSocket, ret);
             }
@@ -269,38 +271,38 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
             Ticket2 = OrderClose(OrderTicket(), OrderLots(), Ask, Slippage, DarkOrange);
             }
          break;
-      
+
       case 4:
          //InformPullClient(pSocket, "HISTORICAL DATA Instruction Received");
-         
+
          // Format: DATA|SYMBOL|TIMEFRAME|START_DATETIME|END_DATETIME
          price_count = CopyClose(compArray[1], StrToInteger(compArray[2]), 
                         StrToInteger(compArray[3]), StrToInteger(compArray[4]), 
                         price_array);
-         
+
          if (price_count > 0) {
-            
+
             ret = "";
-            
+
             // Construct string of price|price|price|.. etc and send to PULL client.
             for(int i = 0; i < price_count; i++ ) {
-               
+
                if(i == 0)
                   ret = compArray[1] + "|" + DoubleToStr(price_array[i], 5);
                else if(i > 0) {
                   ret = ret + "|" + DoubleToStr(price_array[i], 5);
                }   
             }
-            
+
             Print("Sending: " + ret);
-            
+
             // Send data to PULL client.
             InformPullClient(pSocket, StringFormat("%s", ret));
             // ret = "";
          }
-            
+
          break;
-         
+
       default: 
          break;
    }
@@ -308,14 +310,14 @@ void InterpretZmqMessage(Socket &pSocket, string& compArray[]) {
 
 // Parse Zmq Message
 void ParseZmqMessage(string& message, string& retArray[]) {
-   
+
    Print("Parsing: " + message);
-   
+
    string sep = "|";
    ushort u_sep = StringGetCharacter(sep,0);
-   
+
    int splits = StringSplit(message, u_sep, retArray);
-   
+
    for(int i = 0; i < splits; i++) {
       Print(i + ") " + retArray[i]);
    }
@@ -324,10 +326,10 @@ void ParseZmqMessage(string& message, string& retArray[]) {
 //+------------------------------------------------------------------+
 // Generate string for Bid/Ask by symbol
 string GetBidAsk(string symbol) {
-   
+
    double bid = MarketInfo(symbol, MODE_BID);
    double ask = MarketInfo(symbol, MODE_ASK);
-   
+
    return(StringFormat("%f|%f", bid, ask));
 }
 
@@ -336,8 +338,8 @@ void InformPullClient(Socket& pushSocket, string message) {
 
    ZmqMsg pushReply(StringFormat("%s", message));
    // pushSocket.send(pushReply,true,false);
-   
+
    pushSocket.send(pushReply,true); // NON-BLOCKING
    // pushSocket.send(pushReply,false); // BLOCKING
-   
+
 }
