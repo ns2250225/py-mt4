@@ -104,21 +104,18 @@ void OnTimer()
    repSocket.recv(request,true);
    
    // MessageHandler() should go here.   
-   //ZmqMsg reply = MessageHandler(request);
-   //这里做了修改，返回值改成string类型
-   string reply = MessageHandler(request);
+   ZmqMsg reply = MessageHandler(request);
    
    // socket.send(reply) should go here.
    repSocket.send(reply);
 }
 //+------------------------------------------------------------------+
 
-string MessageHandler(ZmqMsg &request) {
-//ZmqMsg MessageHandler(ZmqMsg &request) {
+ZmqMsg MessageHandler(ZmqMsg &request) {
    
    // Output object
-   //ZmqMsg reply;
-   string ret;
+   ZmqMsg reply;
+   
    // Message components for later.
    string components[];
    
@@ -136,18 +133,18 @@ string MessageHandler(ZmqMsg &request) {
       InterpretZmqMessage(&pushSocket, components);
       
       // Construct response
-      //ZmqMsg ret(StringFormat("[SERVER] Processing: %s", dataStr));
-      //reply = ret;
-      ret=StringFormat("[SERVER] Processing: %s", dataStr);
-     // reply.meta(StringFormat("[SERVER] Processing: %s", dataStr));
+      ZmqMsg ret(StringFormat("[SERVER] Processing: %s", dataStr));
+      //reply=ret;
+      //ZmqMsg不允许直接访问，所以把reply=ret改成以下形式
+      reply.copy(ret);
+      
       
    }
    else {
       // NO DATA RECEIVED
    }
- //  ZmqMsg reply(ret);
-//   return(reply);
-     return ret;
+   
+   return(reply);
 }
 
 // Interpret Zmq Message and perform actions
